@@ -6,10 +6,14 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import cross_val_score, GridSearchCV
+from sklearn.preprocessing import normalize
+import matplotlib.pyplot as plt
 from keras import optimizers
 from keras.models import Sequential
-from keras.layers import Dropout, Dense, Conv1D, MaxPooling1D, Flatten
+from keras.layers import Dropout, Dense, Conv1D, MaxPooling1D, Flatten, Embedding, GlobalMaxPool1D
 from keras.wrappers.scikit_learn import KerasClassifier
+from keras.preprocessing.sequence import pad_sequences
+from keras.preprocessing.text import Tokenizer
 
 
 def concat_datasets(train, test, validation):
@@ -67,34 +71,6 @@ def preprocess_data(X, y, dataset_type, tf_idf):
     return X, y
 
 
-def build_ann_classifier(rate=0.1, lr=0.01):
-    classifier = Sequential()
-    
-    classifier.add(Dense(units=512, kernel_initializer='uniform', activation='relu', input_shape=(10229,)))
-    classifier.add(Dropout(rate=rate))
-    classifier.add(Dense(units=512, kernel_initializer='uniform', activation='relu'))
-    classifier.add(Dropout(rate=rate))
-    classifier.add(Dense(units=256, kernel_initializer='uniform', activation='relu'))
-    classifier.add(Dropout(rate=rate))
-    classifier.add(Dense(units=128, kernel_initializer='uniform', activation='relu'))
-    classifier.add(Dropout(rate=rate))
-    classifier.add(Dense(units=64, kernel_initializer='uniform', activation='relu'))
-    classifier.add(Dense(units=32, kernel_initializer='uniform', activation='relu'))
-    classifier.add(Dense(units=1, kernel_initializer='uniform', activation='sigmoid'))
-
-    rmsprop = optimizers.RMSprop(lr=lr)
-    classifier.compile(optimizer=rmsprop, loss='binary_crossentropy', metrics=['accuracy'])
-
-    return classifier
-
-
-def predict_news(news):
-    news = np.array(news)
-    news = tf_idf.transform(news).toarray()
-    
-    return classifier.predict(news) 
-
-
 def k_fold_cross_validation(X, y, build_fn, k, batch, epochs):
     classifier = KerasClassifier(build_fn=build_fn, batch_size=batch, epochs=epochs)
     accuracies = cross_val_score(estimator=classifier, X=X, y=y, cv=k)
@@ -104,17 +80,44 @@ def k_fold_cross_validation(X, y, build_fn, k, batch, epochs):
     return mean, variance
 
 
-if __name__ == '__main__':
-	df = concat_datasets(pd.read_csv('datasets/train.tsv', sep='\t'),
-                pd.read_csv('datasets/test.tsv', sep='\t'),
-                pd.read_csv('datasets/valid.tsv', sep='\t'))
-	X, y = split_dataframe(df)
-	X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=0)
-	tf_idf = TfidfVectorizer(max_df=0.5)
+def tokenize_dataset(tokenizer, X, y):
+    X = tokenizer.texts_to_sequences(X)
+    y = encode_categorical_data(y)
+    y = y.reshape(-1, 1)
+    
+    return X, y
 
-	X_train, y_train = preprocess_data(X_train, y_train, 'train', tf_idf)
-	X_test, y_test = preprocess_data(X_test, y_test, 'test', tf_idf)
 
-	accuracy, variance = k_fold_cross_validation(X_train, y_train, build_ann_classifier, 5, 50, 3)
+def create_embedding_matrix(filepath, word_index, embedding_dim):
+    vocab_size = len(word_index) + 1
+    embedding_matrix = np.zeros((vocab_size, embedding_dim))
 
-	print('Accuracy: {}\nVariance: {}\n'.format(accuracy, variance))
+    with open(filepath) as f:
+        for line in f:
+            word, *vector = line.split()
+            if word in word_index:
+                idx = word_index[word] 
+                embedding_matrix[idx] = np.array(
+                    vector, dtype=np.float32)[:embedding_dim]
+
+    return embedding_matrix
+
+
+def plot_history(acc, val_acc, loss, val_loss, file_name):
+    x = range(1, len(acc) + 1)
+
+    plt.figure(figsize=(12, 5))
+    
+    plt.subplot(1, 2, 1)
+    plt.plot(x, acc, 'b', label='Precisão de Treinamento')
+    plt.plot(x, val_acc, 'r', label='Precisão de Validação')
+    plt.title('Precisão de Treinamento e Validação')
+    plt.legend()
+    
+    plt.subplot(1, 2, 2)
+    plt.plot(x, loss, 'b', label='Perda de Treinamento')
+    plt.plot(x, val_loss, 'r', label='Perda de Validação')
+    plt.title('Perda de Treinamento e Validação')
+    plt.legend()
+    
+    plt.savefig('images/{}.png'.format(file_name))
