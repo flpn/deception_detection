@@ -12,11 +12,13 @@ bds.test(ann_tfidf_errors, 2)
 bds.test(ann_vec_errors, 2)
 bds.test(cnn_errors, 2)
 
-shapiro.test(ann_tfidf_errors)
-shapiro.test(ann_vec_errors)
-shapiro.test(cnn_errors)
+shapiro.test(ann_tfidf_acc)
+shapiro.test(ann_vec_acc)
+shapiro.test(cnn_acc)
+
+var.test(ann_vec_acc, cnn_acc)
 
 wilcox.test(ann_tfidf_acc, ann_vec_acc)
 wilcox.test(ann_tfidf_acc, cnn_acc)
-wilcox.test(cnn_acc, ann_vec_acc)
+t.test(ann_vec_acc, cnn_acc)
 
