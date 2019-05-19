@@ -23,27 +23,19 @@ def execute_ann_tf_idf(mode='cv'):
     X_train, y_train = preprocess_data(X_train, y_train, 'train', tf_idf)
     X_test, y_test = preprocess_data(X_test, y_test, 'test', tf_idf)
 
-    def build_ann_classifier(rate=0.1, lr=0.01):
+    def build_ann_classifier():
         classifier = Sequential()
-        classifier.add(Dense(units=512, kernel_initializer='uniform', activation='relu', input_shape=(10229,)))
-        classifier.add(Dropout(rate=rate))
-        classifier.add(Dense(units=512, kernel_initializer='uniform', activation='relu'))
-        classifier.add(Dropout(rate=rate))
-        classifier.add(Dense(units=256, kernel_initializer='uniform', activation='relu'))
-        classifier.add(Dropout(rate=rate))
-        classifier.add(Dense(units=128, kernel_initializer='uniform', activation='relu'))
-        classifier.add(Dropout(rate=rate))
-        classifier.add(Dense(units=64, kernel_initializer='uniform', activation='relu'))
-        classifier.add(Dense(units=32, kernel_initializer='uniform', activation='relu'))
+        classifier.add(Dense(units=64, kernel_initializer='uniform', activation='relu', input_shape=(10640,), kernel_constraint=maxnorm(1)))
+        classifier.add(Dropout(0.4))
         classifier.add(Dense(units=1, kernel_initializer='uniform', activation='sigmoid'))
 
-        rmsprop = optimizers.RMSprop(lr=lr)
+        rmsprop = optimizers.RMSprop(0.001)
         classifier.compile(optimizer=rmsprop, loss='binary_crossentropy', metrics=['accuracy'])
 
         return classifier
     
     if mode == 'cv':
-    	accuracy, variance = k_fold_cross_validation(X_train, y_train, build_ann_classifier, 5, 50, 3)
+        accuracy, variance = k_fold_cross_validation(X_train, y_train, build_ann_classifier, 5, 32, 3)
     	print('Accuracy: {}\nVariance: {}\n'.format(accuracy, variance))
     else:
         acc = []
@@ -108,15 +100,17 @@ def execute_ann_tokenized(mode='cv'):
 
     def build_ann_classifier_tokenized():
         classifier = Sequential()
-        classifier.add(Dense(10, kernel_initializer='uniform', activation='relu', input_dim=100))
+        classifier.add(Dense(4, kernel_initializer='uniform', activation='relu', input_dim=100, kernel_constraint=maxnorm(3)))
+        classifier.add(Dropout(0.1))
         classifier.add(Dense(1, kernel_initializer='uniform', activation='sigmoid'))
 
-        classifier.compile(optimizer='rmsprop', loss='binary_crossentropy', metrics=['accuracy'])
+        rmsprop = optimizers.RMSprop(0.001)
+        classifier.compile(optimizer=rmsprop, loss='binary_crossentropy', metrics=['accuracy'])
 
         return classifier
 
     if mode == 'cv':
-    	accuracy, variance = k_fold_cross_validation(X_train, y_train, build_ann_classifier_tokenized, 5, 128, 10)
+        accuracy, variance = k_fold_cross_validation(X_train, y_train, build_ann_classifier_tokenized, 5, 64, 15)
     	print('Accuracy: {}\nVariance: {}\n'.format(accuracy, variance))
     else:
         acc = []
